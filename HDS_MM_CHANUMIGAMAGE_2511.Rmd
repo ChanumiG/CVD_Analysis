@@ -1,0 +1,646 @@
+---
+title: >
+  Combined Association of Physical Activity and Body Mass Index With
+  Cardiovascular Disease Prevalence: A Cross-Sectional Analysis
+author: "Chanumi Gamage (cng26@cam.ac.uk)"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    toc_depth: 2
+
+---
+
+
+# ![Screenshot of Cover Page 1](https://github.com/ChanumiG/CVD_Analysis/raw/main/AI%20Declaration.png)
+# ![Screenshot of Cover Page 2](https://github.com/ChanumiG/CVD_Analysis/raw/main/Cover%20Sheet.png)
+
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning=FALSE)  # hiding code in output for document
+
+# Install and load packages
+packages <- c("tidyverse", "knitr", "DT", "gtsummary", "broom", "forcats", "skimr", "readxl", "gt")
+for(p in packages){
+  if(!require(p, character.only = TRUE)) install.packages(p, repos = "http://cran.us.r-project.org")
+  library(p, character.only = TRUE)
+}
+
+
+```
+
+```{r importing dataset, include = FALSE}
+
+# Loading dataset from github through creating temp file to hold download
+url <- "https://github.com/ChanumiG/CVD_Analysis/raw/main/CVD%20Dataset.xlsx"
+
+tmp <- tempfile(fileext = ".xlsx")
+download.file(url,destfile = tmp, mode = "wb")
+
+#Load 
+CVD_raw <- read_excel(tmp, sheet = "cardio_train")
+
+# Check first few rows
+
+head(CVD_raw)
+
+```
+# Abstract 
+
+**Background**: Excess body weight and low physical activity are established risk factors for cardiovascular disease (CVD), yet their combined association with CVD in population-based samples remains less well characterised.
+
+**Objective**: To examine the joint association of body mass index (BMI) and physical activity with CVD prevalence in a large adult dataset.
+
+**Methods**: We conducted a cross-sectional analysis of 64,119 adults classified into six combined BMI–physical activity groups: normal weight (active/inactive), overweight (active/inactive), and obese (active/inactive). CVD prevalence and cardiometabolic risk factors were compared across groups, and multivariable logistic regression was used to estimate adjusted odds ratios (ORs) for CVD, using normal-weight active adults as the reference.
+
+**Results**: CVD prevalence increased progressively across BMI categories and was consistently higher among inactive adults within each BMI stratum. Compared with normal-weight active adults, the odds of CVD were higher for normal-weight inactive (OR = 1.23; 95% CI: 1.15–1.31), overweight active (OR = 1.49; 95% CI: 1.42–1.55), overweight inactive (OR = 1.67; 95% CI: 1.57–1.79), obese active (OR = 2.29; 95% CI: 2.19–2.40) and obese inactive adults (OR = 2.85; 95% CI: 2.63–3.08).
+
+**Conclusion**: Higher BMI and lower physical activity were independently and jointly associated with greater CVD prevalence. Although physical activity was beneficial at all body weights, it did not fully offset the elevated cardiovascular burden associated with overweight and obesity. These findings highlight the importance of both regular physical activity and healthy weight management in CVD prevention.
+
+
+
+# Introduction
+
+Cardiovascular disease (CVD) remains the leading cause of morbidity and mortality worldwide, placing a substantial burden on healthcare systems (Roth et al., 2020; Chong et al., 2025). Excess body weight is a well-established risk factor for CVD (Calle et al., 1999; Lavie et al., 2009), while higher levels of physical activity are consistently associated with reduced cardiovascular risk (Wahid et al., 2016). 
+
+Although the independent effects of obesity and physical activity on cardiovascular health are well documented, their combined influence, particularly whether physical activity can offset the adverse effects of excess adiposity remains debated. Based on multiple longitudinal community-based studies, it has been suggested that overweight or obese individuals who maintain high levels of activity or fitness may have cardiovascular risk comparable to active individuals of normal weight, a concept often referred to as the “fat but fit” hypothesis (McAuley & Blair, 2011; Ortega et al., 2018). For example, Koolhaas et al. (2017) reported that physically active older adults with overweight or obesity had similar long-term CVD risk to active normal-weight peers over 15 years of follow-up. 
+
+However, other research challenges this interpretation. Cohort studies indicate that while physical activity is beneficial across all BMI categories, it does not fully eliminate the increased risk associated with excess weight (Carlsson et al., 2015; Sui et al., 2007). For instance, Carlsson et al. (2015), in a 30-year study of middle-aged men, observed that overweight /obese individuals remained at substantially higher risk of CVD despite being physically active. Similar findings were reported in a large Spanish population study by Valenzuela et al. (2022), where physically active adults with overweight or obesity still had markedly higher odds of CVD risk factors (hypertension, diabetes, and hypercholesterolemia) than active normal-weight adults.
+
+Overall, the evidence remains mixed. Gaining clarity on this debate has important implications for public health recommendations and whether interventions should prioritise weight reduction, physical activity, or both. This is especially relevant given the global obesity epidemic (World Health Organization, 2025). The present cross-sectional analysis of a large cardiovascular dataset aims to examine the joint association between BMI categories and physical activity levels with CVD prevalence and to determine whether our findings align with or challenge the “fat but fit” hypothesis.
+
+
+# Methods
+
+**Study Design**
+
+This study used a cross-sectional observational design to examine the association between body mass index (BMI), physical activity, and cardiovascular disease (CVD) at a single point in time. Because the dataset was derived from routine clinical assessments rather than an intervention, the study aimed to describe patterns and associations rather than infer causality.
+
+**Data Source and Access**
+
+Data was obtained from an openly available cardiovascular dataset published by Svetlana Ulianova under a CC0 Public Domain licence (https://www.kaggle.com/datasets/sulianova/cardiovascular-disease-dataset/data). The dataset contains 70,000 anonymised patient-level records with 12 variables, including demographic characteristics (age, sex), lifestyle factors (smoking, alcohol use, physical activity), clinical measurements (height, weight, blood pressure, cholesterol, glucose), and a binary indicator of CVD. Data was collected through a combination of objective examination results, factual demographic information, and subjective patient-reported measures at the time of medical examination. Information on sampling procedures, geographic location, and timing of data collection was not reported. A preview of the raw dataset is shown in Table 1.
+
+**Table 1.** Overview of the raw CVD dataset showing the original unprocessed variables
+```{r overview_of_CVD_dataset, echo=FALSE}
+DT::datatable(
+  head(CVD_raw, 20),
+  extensions = c("Buttons", "FixedColumns"),
+  options = list(
+    scrollX = TRUE,
+    paging = TRUE,
+    searching = TRUE,
+    fixedColumns = TRUE,
+    autoWidth = TRUE,
+    ordering = TRUE,
+    dom = "tB",
+    buttons = c("copy", "excel")
+  ),
+  class = "display nowrap"
+  )
+
+```
+
+```{r CVD dataset inspection, include = FALSE}
+
+# INITIALLY EXPLORING DATA
+
+# Convert selected variables to categorical for summarising
+cat_vars <- c("gender", "cholesterol", "gluc", "smoke", "alco", "active", "cardio")
+CVD_raw[cat_vars] <- lapply(CVD_raw[cat_vars], factor)
+
+# Remove id column for summary
+CVD_no_id <- CVD_raw %>% select(-id)
+
+# Summarise dataset- info on size, datatypes, basic statistics, missing values 
+skim(CVD_no_id)
+
+# No null values noted
+
+```
+
+
+```{r CVD removing outliers, include = FALSE}
+
+# Data Cleaning: Removing Outliers - implausible height and weight values existed 
+
+CVD_trimmed <- CVD_raw %>%
+  filter(
+    between(height, quantile(height, 0.025), quantile(height, 0.975)),
+    between(weight, quantile(weight, 0.025), quantile(weight, 0.975))
+  )
+
+# Double-check summary
+skim(CVD_trimmed)
+
+```
+
+```{r Transforming columns, include = "FALSE"}
+
+# TRANSFORM COLUMNS / DERIVE VARIABLES
+
+CVD_transform <- CVD_trimmed %>%
+  mutate(
+    # Calculate BMI (Body Mass Index) from weight (kg) and height (cm) and round to 2 decimals
+    BMI = round(weight / ((height / 100)^2), 2),
+    
+    # Categorise BMI into standard weight categories
+    BMI_cat = case_when(
+      BMI < 18.5 ~ "Underweight",     
+      BMI < 25 ~ "Healthy",           
+      BMI < 30 ~ "Overweight",        
+      BMI >= 30 ~ "Obese",          
+      TRUE ~ "Unknown"                # Catch any unexpected values
+    ),
+    
+    # Convert age from days to full years
+    Age_Years = floor(age / 365),
+    
+    # Convert physical activity indicator to a readable factor
+    Active_Flag = case_when(
+      active == 1 ~ "Active",         
+      active == 0 ~ "Not Active",     
+      TRUE ~ "Unknown"                
+    ),
+    
+    # Convert cardiovascular disease indicator to readable factor
+    CVD_Flag = case_when(
+      cardio == 1 ~ "CVD",            
+      cardio == 0 ~ "No CVD",         
+      TRUE ~ "Unknown"                
+    ),
+    
+    # Convert gender numeric code to descriptive factor
+    Gender = case_when(
+      gender == 1 ~ "Women",          
+      gender == 2 ~ "Men",            
+      TRUE ~ "Unknown"                
+    ),
+    
+    # Convert smoking indicator to readable factor
+    Smoking_Status = case_when(
+      smoke == 1 ~ "Smoker",          
+      smoke == 0 ~ "Non-Smoker",      
+      TRUE ~ "Unknown"               
+    ),
+    
+    # Convert alcohol consumption indicator to readable factor
+    Alcohol_Drinker = case_when(
+      alco == 1 ~ "Drinker",          
+      alco == 0 ~ "Non-Drinker",     
+      TRUE ~ "Unknown"                
+    ),
+    
+    # Assign blood pressure columns to clearer variable names 
+    Systolic_bp = ap_hi,              # Systolic blood pressure
+    Diastolic_bp = ap_lo,             # Diastolic blood pressure
+    
+    # Convert cholesterol codes to descriptive factor
+    Cholesterol = case_when(
+      cholesterol == 1 ~ "Normal",        
+      cholesterol == 2 ~ "Above Normal",  
+      cholesterol == 3 ~ "Well Above Normal", 
+      TRUE ~ "Unknown"                    
+    ),
+    
+    # Convert glucose codes to descriptive factor
+    Glucose = case_when(
+      gluc == 1 ~ "Normal",               
+      gluc == 2 ~ "Above Normal",         
+      gluc == 3 ~ "Well Above Normal",    
+      TRUE ~ "Unknown"                   
+    )
+  )
+
+# Checking everyone over 18
+skim(CVD_trimmed)
+
+```
+
+```{r removing underweight BMI cat}
+
+# Filtering out underweight participants (not relevant to specific research question)
+
+CVD_filtered <- CVD_transform %>%
+  filter(BMI_cat != "Underweight")
+
+```
+
+
+```{r Selecting analysis-ready columns}
+
+#selecting the variables to explore further
+
+CVD_selected <- CVD_filtered %>% 
+  select(Age_Years
+         , Gender
+         , BMI
+         , BMI_cat
+         , Active_Flag
+         , CVD_Flag
+         , Smoking_Status
+         , Alcohol_Drinker
+         , Systolic_bp
+         , Diastolic_bp
+         , Cholesterol
+         , Glucose)
+
+```
+
+**Ethics**
+
+Ethical approval was not required because all data was fully anonymised, publicly available, and contained no information that could reasonably re-identify individuals.
+
+**Data Cleaning and Preparation**
+
+All data cleaning and transformation procedures were completed in R (v4.5.1).
+Initial exploratory data analysis (summary statistics, distribution checks) was used to confirm completeness and to identify implausible values within variables. No missing data was present for the variables included in this analysis.
+Patients with implausible height or weight values defined as observations below the 2.5th percentile or above the 97.5th percentile were removed (N = 5,648). Individuals classified as underweight (BMI < 18.5 kg/m²) were also excluded (N = 153) because they fell outside the focus of the study. Raw columns were renamed for clarity, and variable formats were harmonised (e.g., age converted from days to years; BMI calculated from height and weight). After cleaning, the final analytic sample comprised of 64,119 participants. An extract of the cleaned dataset is shown in Table 2.
+
+**Table 2.** Overview of the cleaned CVD dataset
+```{r showing cleaned table}
+
+#showing cleaned data table
+
+DT::datatable(
+  head(CVD_selected,20),
+  extensions = c('Buttons', 'FixedColumns'),
+  options = list(
+              scrollX = TRUE,
+              paging = TRUE,
+              searching = TRUE,
+              fixedColumns = TRUE,
+              autoWidth = TRUE,
+              ordering = TRUE,
+              dom = 'tB',
+              buttons = c('copy', 'excel')
+              ),
+              class = "display nowrap"
+)
+
+```
+**Exposure Variables**
+
+BMI was calculated as weight (kg) divided by height squared (m²). Participants were categorised according to NICE guidelines into normal weight (18.5–24.9 kg/m²), overweight (25.0–29.9 kg/m²) and obese (≥30.0 kg/m²). 
+Physical activity was self-reported and coded as either physically active or physically inactive.
+
+MI category and physical activity status were then combined to create six phenotypes: normal weight & active, normal weight & inactive, overweight & active, overweight & inactive, obese & active, and obese & inactive.
+
+**Outcome Variable**
+
+The primary outcome was prevalent cardiovascular disease at the time of medical examination, recorded in the dataset as a binary variable (present/absent).
+
+**Confounders & Other variables**
+
+Age was recorded in days but converted to years by dividing by 365 and rounding down to the nearest whole year, to improve interpretability and comparability with previous studies. Sex was categorised as male or female. Smoking status and alcohol consumption were self-reported as binary variables (yes/no).
+Blood pressure, cholesterol and glucose were not included in the regression models because they are likely to lie on the pathway between BMI and CVD, rather than act as confounders. They were kept in the dataset and are shown in Table 3 to describe the clinical profile of the sample.
+
+**Statistical Analysis**
+
+For all six BMI x Physical Activity groups baseline characteristics were summarized as mean ± standard deviation for continuous variables and as frequency (percentage) for categorical variables.
+Logistic regression was used to examine the association between BMI/PA phenotypes and CVD prevalence. The reference category was normal weight with high physical activity. The model was adjusted for age, sex, smoking status, and alcohol use. Systolic blood pressure, diastolic blood pressure, cholesterol, and glucose were excluded from adjustment because they are considered intermediates in the causal pathway between BMI and
+cardiovascular disease (CVD). Statistical significance was set at p < 0.05
+
+All analyses were conducted in R (v4.5.1), and the code is available at on GitHub (https://github.com/ChanumiG/CVD_Analysis) to support transparency and reproducibility. Statistical significance was set at p < 0.05.
+
+```{r creating 6 BMIxPA groups}
+
+  # Create combined BMI / activity category
+
+CVD_selected <- CVD_selected %>%
+     mutate(
+      BMI_Act_cat = case_when(
+      BMI_cat == "Healthy" & Active_Flag == "Active"   ~ "Normal weight & Active",
+      BMI_cat == "Healthy" & Active_Flag == "Not Active" ~ "Normal weight & Inactive",
+      BMI_cat == "Overweight"    & Active_Flag == "Active"   ~ "Overweight & Active",
+      BMI_cat == "Overweight"    & Active_Flag == "Not Active" ~ "Overweight & Inactive",
+      BMI_cat == "Obese"         & Active_Flag == "Active"   ~ "Obese & Active",
+      BMI_cat == "Obese"         & Active_Flag == "Not Active" ~ "Obese & Inactive",
+      TRUE ~ "Unknown"
+    ),
+  # Setting factor level order for combined BMI/PA variable - useful for tables/visuals
+    BMI_Act_cat = fct_relevel (    
+      BMI_Act_cat, 
+      "Normal weight & Active",
+      "Normal weight & Inactive",
+      "Overweight & Active",
+      "Overweight & Inactive",
+      "Obese & Active",
+      "Obese & Inactive"      
+      )
+      
+     )
+
+```
+# Results
+
+The study included 64,119 patients. Across the six BMI × physical activity groups, the active categories contained more individuals (12,770–19,543) than the corresponding inactive groups (3,260–4,678). Participants were predominantly in their mid-50s and were mainly women. Most were non-smokers and non-drinkers. Blood pressure, cholesterol and glucose values became progressively less favourable from normal weight to obese groups, with slightly higher levels in inactive than active individuals within each BMI category. A full breakdown of baseline characteristics & cardiovascular risk factors by BMI × physical activity group is shown in Table 3.
+
+**Table 3.** Participant characteristics and cardiovascular risk factors by BMI × physical activity group and overall
+```{r characteristics table}
+
+# Characteristics Table
+
+Summary_table <- CVD_selected %>%
+  tbl_summary(
+    by = BMI_Act_cat,  # Grouping variable by BMI x PA group
+    include = c(Age_Years, Gender, BMI, Smoking_Status, Alcohol_Drinker,
+                Systolic_bp, Diastolic_bp, Cholesterol, Glucose),
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",   # Mean (SD) for continuous variables
+      all_categorical() ~ "{n} ({p}%)"     # n (%) for categorical variables
+    ),
+    digits = all_continuous() ~ 2,        # Round continuous vars to 2 decimals
+    label = list(                          # Friendly variable labels 
+      Age_Years ~ "Age (years)",
+      BMI ~ "BMI (kg/m^2)",                # Replaced superscript with ^2
+      Smoking_Status ~ "Current Smoking Status",
+      Alcohol_Drinker ~ "Alcohol Consumption", 
+      Systolic_bp ~ "Systolic BP (mmHg)",
+      Diastolic_bp ~ "Diastolic BP (mmHg)",
+      Cholesterol ~ "Cholesterol",
+      Glucose ~ "Glucose"
+    )
+  ) %>%
+  add_overall() %>%                        # Add overall column
+  modify_header(
+    label = "**Variable**",
+    stat_0 = "**Total**"
+  ) %>%
+  modify_spanning_header(c(starts_with("stat_")) ~ "**BMI & Activity**") %>%
+  bold_labels() %>%                        # Bold variable names
+  as_gt() %>%                               # Convert to gt table
+  gt::tab_options(
+    table.font.size = px(10),             # Smaller font
+    data_row.padding = px(2),             # Less padding for compact table
+    heading.padding = px(2)
+  )
+
+# Display the table
+Summary_table
+
+
+
+```
+
+
+Figure 1 shows CVD prevalence across combined BMI and physical activity categories. Prevalence increased progressively across BMI groups, and within each BMI category, it was higher among inactive participants than among active participants, showing a clear dose–response relationship. Among normal-weight adults, CVD was observed in 39.5% of active individuals and 44.6% of inactive individuals. In overweight adults, prevalence rose to 50.2% in active participants and 53.3% in inactive participants. The highest prevalence was seen among adults with obesity, reaching 61.3% in active and 66.6% in inactive participants. 
+
+
+```{r CVD Prevalence by BMI x Activity Group}
+
+
+# CVD PREVELANCE BY BMI x PA GROUP
+
+
+# Summarise prevalence of CVD for each BMI x Activity category
+cVD_prevalence <- CVD_selected %>%
+  group_by(BMI_Act_cat) %>%           # Group data by combined BMI & Physical Activity category
+  summarise(
+    N = n(),                           # Total participants in each group
+    CVD_cases = sum(CVD_Flag == "CVD"), # Number of participants with CVD
+    prevalence = (CVD_cases / N) * 100 # Calculate prevalence (%) of CVD
+  )
+
+
+# Bar plot of CVD prevalence
+
+ggplot(cVD_prevalence, aes(x = BMI_Act_cat, y = prevalence)) +
+  geom_bar(stat = "identity", fill = "steelblue") +   # Plot bars with fixed color
+  geom_text(aes(label = paste0(round(prevalence, 1), "%")), 
+            vjust = -0.3) +                           # Add prevalence labels above bars
+  ylim(0, max(cVD_prevalence$prevalence) * 1.1) +    # Extend y-axis slightly above max value for readability
+  labs(y = "CVD Prevalence (%)", x = "") +
+  theme_minimal() +                                    # Minimal theme for cleaner look
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis labels for readability
+    plot.title = element_text(face = "bold", size = 14) # Make title bold and slightly larger
+  )
+
+
+
+```
+
+**Figure 1.** Prevalence of cardiovascular disease across combined BMI and physical activity categories.
+
+
+These descriptive patterns were further examined and confirmed in the adjusted logistic regression model, which demonstrated that all BMI × physical activity categories were associated with significantly higher odds of CVD compared with normal-weight active adults (Figure 2, Table 4). Normal-weight inactive participants had modestly elevated odds (OR = 1.23; 95% CI: 1.15–1.31). Overweight active and inactive individuals showed progressively higher odds (OR = 1.49; 95% CI: 1.42–1.55 and OR = 1.67; 95% CI: 1.57–1.79, respectively). The highest odds were observed among obese adults: obese active participants had more than double the odds of CVD (OR = 2.29; 95% CI: 2.19–2.40), while obese inactive participants had the greatest risk (OR = 2.85; 95% CI: 2.63–3.08). 
+
+```{r Logistic Regression}
+
+# CONDUCTING LOGISTIC REGRESSION: CVD Odds
+                           
+# Ensure CVD_Flag is a factor with correct reference
+
+CVD_selected <- CVD_selected %>%
+  mutate(
+    CVD_Flag = factor(CVD_Flag, levels = c("No CVD", "CVD"))
+    # This sets "No CVD" as the reference category for logistic regression
+  )
+
+# adjusted logistic regression
+# Logistic regression model predicting CVD (yes/no)
+# Predictors include BMI x Activity group, age, gender, smoking, alcohol
+
+model_fully <- glm(
+  CVD_Flag ~ BMI_Act_cat + Age_Years + Gender + Smoking_Status + Alcohol_Drinker,
+  data = CVD_selected,
+  family = binomial  # family = binomial specifies logistic regression
+)
+
+
+
+# Extract odds ratios (OR) and 95% confidence intervals (CI)
+
+tidy_model <- broom::tidy(model_fully, exponentiate = TRUE, conf.int = TRUE) %>%
+  filter(grepl("BMI_Act_cat", term)) %>%   # Keep only terms related to BMI x Activity groups
+  mutate(
+    # Add significance stars based on p-value
+    star = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01 ~ "**",
+      p.value < 0.05 ~ "*",
+      TRUE ~ ""
+    ),
+    # Clean term names for easier reading and plotting
+    BMI_Act_cat = gsub("BMI_Act_cat", "", term),  # Remove model prefix
+    BMI_Act_cat = gsub("&", "/", BMI_Act_cat)    # Replace & with / for readability
+  )
+
+
+# Add reference group (OR = 1)
+
+ref_row <- data.frame(
+  term = "Normal weight / Active",  # Name of reference group
+  estimate = 1,                      # OR = 1 for reference
+  conf.low = 1,                      # Lower CI = 1
+  conf.high = 1,                     # Upper CI = 1
+  p.value = NA,                       # No p-value for reference
+  star = "",                          # No significance stars
+  BMI_Act_cat = "Normal weight / Active"
+)
+
+# Combine reference row with model results
+tidy_model_plot <- bind_rows(ref_row, tidy_model)
+
+# Set factor levels for plotting and table display
+tidy_model_plot$BMI_Act_cat <- factor(
+  tidy_model_plot$BMI_Act_cat,
+  levels = c(
+    "Normal weight / Active",
+    "Normal weight / Inactive",
+    "Overweight / Active",
+    "Overweight / Inactive",
+    "Obese / Active",
+    "Obese / Inactive"
+  )
+)
+# This ensures the BMI x Activity groups appear in logical order in tables/plots
+
+
+```
+
+**Table 4.** Joint association between BMI and physical activity categories with cardiovascular disease prevelance.
+```{r Logistic Regression Table}
+
+# Prepare report table
+
+report_table_gt <- tidy_model_plot %>%
+  mutate(
+    # Create a display column for Odds Ratios with confidence intervals
+    # Mark the reference group with "Referent"
+    OR_CI = ifelse(
+      BMI_Act_cat == "Normal weight / Active",
+      "Referent",
+      paste0(round(estimate, 2), star, " (", round(conf.low, 2), "-", round(conf.high, 2), ")")
+    )
+  ) %>%
+  # Select only the columns needed for the table and rename them for display
+  select(`BMI x Activity Group` = BMI_Act_cat, `Odds Ratio (95% CI)` = OR_CI)
+
+
+# Create journal-ready gt table
+
+report_table_gt %>%
+  gt() %>%  
+  fmt_markdown(
+    columns = c(`Odds Ratio (95% CI)`)  # Render significance stars correctly
+  ) %>%
+  tab_options(
+    table.font.size = px(14),          # bigger font
+    data_row.padding = px(6),          # more row padding
+    heading.padding = px(4),           # small padding for header
+    table.border.top.width = px(0),    
+    table.border.bottom.width = px(0),
+    table.border.left.width = px(0),
+    table.border.right.width = px(0)
+  ) %>%
+  cols_label(
+    `BMI x Activity Group` = html("<b>BMI x Activity Group</b>"),
+    `Odds Ratio (95% CI)` = html("<b>Odds Ratio (95% CI)</b>")
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = c(`BMI x Activity Group`)
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(`Odds Ratio (95% CI)`)
+  ) %>%
+  tab_source_note(
+    source_note = "Data are odds ratios (95% confidence intervals) from a multivariable logistic regression model adjusted for age, gender, smoking status and alcohol use. *p < 0.05, **p < 0.01, ***p < 0.001."
+  )
+
+
+```
+
+
+```{r Logistic Regression Graph}
+
+# Plot ORs
+ggplot(tidy_model_plot, aes(x = BMI_Act_cat, y = estimate, ymin = conf.low, ymax = conf.high)) +
+  geom_pointrange(color = "steelblue", size = 1) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
+  labs(x = "BMI x Physical Activity Group",
+       y = "Odds Ratio (95% CI)") +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+**Figure 2.** Joint association between BMI and physical activity categories with cardiovascular disease prevelance. Points represent adjusted odds ratios and vertical lines represent 95% confidence intervals from multivariable logistic regression, using normal weight & active as the reference group.
+
+# Discussion 
+
+This cross-sectional analysis indicates that CVD prevalence increases with higher BMI. Although physical activity reduces CVD risk within every BMI category, excess body weight remains a significant independent risk factor. Notably, physically active individuals with obesity still exhibited approximately twice the risk of CVD compared with their active normal-weight counterparts. These findings challenge the notion that physical activity alone can fully offset the elevated cardiovascular risk associated with overweight and obesity, as described by the “fat but fit” paradigm. 
+
+Taken together with previous cross-sectional and longitudinal studies (Carlsson et al., 2015; Valenzuela et al., 2022; Sui et al., 2007; Hu et al., 2004), our findings on prevalent CVD in a contemporary mixed-sex sample add to a consistent pattern across different designs, outcomes (risk factors, incident CVD and CVD mortality) and populations. Overall, the evidence suggests that while physical activity is beneficial at all body weights, excess adiposity remains an important marker of cardiovascular risk.Although this pattern is consistent across multiple studies, controversy remains, with many studies sayings that physical activity/fitness can counteract the negative cardiovascular effects of excess weight (Ortega et al., 2018)
+
+Our findings may differ from studies supporting the “fat but fit” paradigm due to differences in how physical activity was conceptualised and measured. In this study, physical activity was assessed using a self-report measure, whereas other “fat but fit” studies rely on objective assessments (Fogelhom et al., 2010). Self-reported data is vulnerable to recall and social desirability bias. Evidence suggests that individuals with obesity often overestimate their activity levels, which could have diluted observed associations (Hainer et al., 2009). Notably, studies reporting similar outcomes to this study used self-reported physical activity measures aswell (Valuenzela et al. (2022), Carlsson et al., 2015)
+
+Furthermore in this dataset, physical activity was recorded as a simple binary variable (active/inactive), offering little detail on intensity, duration, or adherence to guidelines. In contrast, studies supporting the “fat but fit” hypothesis often employ more comprehensive measures. For example, Koolhaas et al. used metabolic equivalents of tasks (METs), which capture both intensity and energy expenditure. It is possible that a certain threshold of physical activity must be met to meaningfully reduce cardiovascular risk. Other studies supporting the paradigm assess cardiorespiratory fitness (CRF) using objective tests such as VO₂ max or treadmill protocols (Weelreyer et al., 2024; Fogelholm 2010). CRF reflects physiological adaptations resulting from sustained exercise and may play a more critical role in reducing risk than activity alone. A recent meta-analysis of CRF-focused studies confirmed that individuals with high CRF had all-cause and cardiovascular mortality risks comparable to normal-weight fit individuals, regardless of BMI (Weeldreyer et al., 2024). These differences underscore the need for future research to employ comprehensive, objective measures of physical activity and to examine how varying activity levels interact with BMI to influence cardiovascular risk, as well as the distinct roles of PA and CRF in this association.
+
+The underlying process through which excess body fat increases CVD risk has been well documented.  Fat tissue releases substances such as fatty acids and inflammatory molecules that can damage blood vessels, promote clot formation, and speed up the development of atherosclerosis (Sowers, 2003). In contrast, regular physical activity supports cardiovascular health by improving how blood vessel’s function, reducing strain on the heart, and making arterial plaques more stable so they are less likely to rupture (Bowles, 1985). These protective effects suggest that regular exercise may help counteract the prothrombotic and inflammatory changes associated with excess adiposity (Powers et al., 2002)
+
+Our findings suggest that maintaining an optimal BMI is important for reducing cardiovascular risk, regardless of physical activity, which supports the current public health messages promoting weight loss for people with overweight/obesity (Hunger & Tomiyama, 2015). However, long-term weight loss is notoriously difficult to achieve because of biological, behavioural and environmental factors (Hall & Kahan, 2018), and only about 1 in 200 adults with obesity reach a normal BMI each year (Fildes et al., 2015). When weight loss is placed at the centre of public health strategies, it can be demotivating and may foster negative attitudes towards exercise (Hunger & Tomiyama, 2015). Qualitative work indicates that many people with obesity view physical activity mainly as a tool for weight loss and may disengage if weight reduction does not occur (Bombak, 2015). Our analysis shows that being physically active is linked with better cardiovascular profiles across all BMI categories, supporting a shift in emphasis towards the broader health and wellbeing benefits of physical activity rather than weight loss alone. Framing exercise in terms of fitness, metabolic health and overall wellbeing (Raiman et al., 2023) may help reduce barriers to participation and support better long-term cardiovascular outcomes for people with higher BMI.
+
+A strength of the study is the large sample size as well as the use of a multivariable-adjusted regression model, allowing control of multiple confounding variables known to influence the association between physical activity and cardiovascular risk such as age, gender & smoking status (Ryan et al., 2019).  It is possible that residual confounding from variables such as diet and socioeconomic status however still exist.
+
+As with most of the work on the “fat but fit” hypothesis, our study is based on observational data. Our analysis is cross-sectional, and many of the key studies in this area use prospective cohort designs. Combined these studies are useful for describing associations and for providing prognostic information, but they cannot show cause-and-effect relationships between BMI, physical activity and CVD. Future exercise-based trials in adults with overweight and obesity, with careful measurement of physical fitness as well as adiposity, would help to clarify the causal pathways behind the patterns seen in observational studies like ours (Ortega et al., 2018). Furthermore, this was a secondary dataset with limited accompanying meta-data. Key details such as the source population, sampling procedures, and the period or context of data collection were not reported. These gaps make it difficult to judge how representative the sample is and limit the ability to place the findings within a specific population or setting.
+ 
+
+
+# Conclusion
+
+In this large cross-sectional study, physically active individuals had lower CVD prevalence at all BMI levels than their inactive counterparts. However, activity did not remove the excess risk seen in adults with overweight or obesity, so our findings do not provide support for the “fat but fit” paradox. These results suggest that public health strategies should continue to focus on healthy weight management while also placing strong emphasis on promoting physical activity across all BMI groups to support cardiovascular health. 
+
+# References
+
+
+Bombak, A. E. (2015). Obesity, health at every size, and public health policy. American Journal of Public Health, 105(3), e38–e44. https://doi.org/10.2105/AJPH.2014.302481
+Bowles, D. K. (1985). Effects of exercise on arterial function. Exercise and Sport Sciences Reviews, 13, 1–30.
+
+Calle, E. E., Thun, M. J., Petrelli, J. M., Rodriguez, C., & Heath, C. W. (1999). Body-mass index and mortality in a prospective cohort of U.S. adults. New England Journal of Medicine, 341(15), 1097–1105. https://doi.org/10.1056/NEJM199910073411501
+
+Carlsson, A. C., Ärnlöv, J., Sundström, J., Michaëlsson, K., Byberg, L., Lind, L., & Larsson, S. C. (2015). Physical activity, obesity and risk of cardiovascular disease in middle-aged men: A 30-year prospective study. European Journal of Preventive Cardiology, 23(5), 469–475. https://doi.org/10.1177/2047487315588538
+
+Chong, H., Patel, P., & Williams, T. (2025). Global patterns of cardiovascular disease: Epidemiology and policy implications. Lancet Public Health, 10(1), 12–22.
+
+Fildes, A., Charlton, J., Rudisill, C., Littlejohns, P., Prevost, A. T., & Gulliford, M. C. (2015). Probability of an obese person attaining normal body weight: Cohort study using electronic health records. American Journal of Public Health, 105(9), e54–e59. https://doi.org/10.2105/AJPH.2015.302773
+
+Fogelholm, M. (2010). Physical activity, fitness and fatness: Relations to mortality, morbidity and disease risk factors. Obesity Reviews, 11(3), 202–221. https://doi.org/10.1111/j.1467-789X.2009.00653.x
+
+Hainer, V., Toplak, H., & Mitrakou, A. (2009). Treatment modalities of obesity: What fits whom? Diabetes Care, 32(S2), S356–S363. https://doi.org/10.2337/dc09-S355
+
+Hall, K. D., & Kahan, S. (2018). Maintenance of lost weight and long-term management of obesity. Medical Clinics of North America, 102(1), 183–197. https://doi.org/10.1016/j.mcna.2017.08.012
+
+Hu, G., Tuomilehto, J., Silventoinen, K., Barengo, N. C., Peltonen, M., & Jousilahti, P. (2004). The effects of physical activity and body mass index on cardiovascular, cancer and all-cause mortality among 47,212 middle-aged Finnish men and women. International Journal of Obesity, 29, 894–902. https://doi.org/10.1038/sj.ijo.0802965
+
+Koolhaas, C. M., Dhana, K., Stenholm, S., Ikram, M. A., Kavousi, M., Giskes, K., & Franco, O. H. (2017). Physical activity and the risk of cardiovascular disease: The prospective Rotterdam Study. Journal of the American Heart Association, 6(12), e005654. https://doi.org/10.1161/JAHA.117.005654
+
+Lavie, C. J., Milani, R. V., & Ventura, H. O. (2009). Obesity and cardiovascular disease: Risk factor, paradox, and impact of weight loss. Journal of the American College of Cardiology, 53(21), 1925–1932. https://doi.org/10.1016/j.jacc.2008.12.068
+
+McAuley, P. A., & Blair, S. N. (2011). Obesity paradoxes. Journal of Sports Sciences, 29(8), 773–782. https://doi.org/10.1080/02640414.2011.553965
+
+Ortega, F. B., Ruiz, J. R., Labayen, I., & Lavie, C. J. (2018). The fat but fit paradox: What we know and don’t know about it. Nature Reviews Endocrinology, 14(1), 13–14.
+Powers, S. K., & Howley, E. T. (2002). Exercise physiology: Theory and application to fitness and performance. McGraw-Hill.
+
+Raiman, L., Jones, P., & Patel, N. (2023). Rethinking physical activity messaging in obesity: From weight loss to wellbeing. Public Health Reviews, 44, 160497.
+
+Roth, G. A., Mensah, G. A., Fuster, V., et al. (2020). The global burden of cardiovascular diseases and risk factors. Journal of the American College of Cardiology, 76(25), 2982–3021.
+
+Ryan, D. H., Ravussin, E., & Heymsfield, S. (2019). COVID, obesity, and the metabolic syndrome. Obesity, 28(6), 842–844.
+
+Sowers, J. R. (2003). Obesity as a cardiovascular risk factor. American Journal of Medicine, 115(Suppl 8A), 37S–41S. https://doi.org/10.1016/j.amjmed.2003.08.012
+
+Sui, X., LaMonte, M. J., Laditka, J. N., Hardin, J. W., Chase, N., Hooker, S. P., Blair, S. N. (2007). Cardiorespiratory fitness and adiposity as mortality predictors in older adults. JAMA, 298(21), 2507–2516.
+Ulianova, S. (2020). Cardiovascular disease dataset 
+
+Valenzuela, P. L., de la Villa, P., Morales, J. S., et al. (2022). Obesity, physical activity and cardiovascular risk factors in more than half a million adults: A cross-sectional analysis. European Journal of Preventive Cardiology, 29(6), 937–947. https://doi.org/10.1093/eurjpc/zwab056
+Wahid, A., et al. (2016). Reassessing the evidence on physical activity and health: A meta-analysis of 40 years of data. British Journal of Sports Medicine, 50(14), 849–856.
+Weeldreyer, E. S., Smith, A. J., & Roberts, C. W. (2024). Cardiorespiratory fitness and cardiovascular mortality across BMI categories: A systematic review and meta-analysis. Sports Medicine, 54(2), 215–229.
+World Health Organization. (2025). Global status report on obesity and physical inactivity. WHO Press.
+
+
